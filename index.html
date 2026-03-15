@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Game Theory Simulator — Strategy & Decision Making</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Mono:wght@300;400;500&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#faf8f4;--ink:#1a1410;--rust:#c0392b;--gold:#b8860b;
+  --cream:#f0ebe0;--warm:#e8dcc8;--accent:#8b2500;
+  --green:#2d6a4f;--blue:#1d3461;--muted:#8a7560;
+}
+body{background:var(--bg);color:var(--ink);font-family:'DM Mono',monospace;min-height:100vh}
+/* Layout */
+.app{display:grid;grid-template-columns:280px 1fr;grid-template-rows:auto 1fr;min-height:100vh}
+header{grid-column:1/-1;border-bottom:3px solid var(--ink);padding:20px 32px;
+  display:flex;align-items:baseline;gap:24px;background:var(--ink)}
+h1{font-family:'Playfair Display',serif;font-size:1.8rem;font-weight:900;color:var(--bg);letter-spacing:-.02em}
+.header-sub{font-size:.65rem;color:#8a7560;letter-spacing:.15em;text-transform:uppercase}
+.cert-badge{margin-left:auto;font-size:.6rem;border:1px solid #8a7560;color:#c4a882;padding:4px 10px;letter-spacing:.1em}
+.sidebar{background:var(--cream);border-right:2px solid var(--warm);padding:24px 20px;overflow-y:auto}
+.main{padding:28px 32px;overflow-y:auto}
+/* Nav */
+.nav-label{font-size:.55rem;letter-spacing:.2em;color:var(--muted);text-transform:uppercase;margin:20px 0 8px}
+.nav-label:first-child{margin-top:0}
+.nav-btn{display:block;width:100%;text-align:left;padding:9px 12px;background:none;
+  border:1px solid transparent;font-family:'DM Mono',monospace;font-size:.68rem;
+  color:var(--ink);cursor:pointer;letter-spacing:.05em;transition:all .15s;margin-bottom:3px}
+.nav-btn:hover,.nav-btn.active{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+/* Game container */
+.game-title{font-family:'Playfair Display',serif;font-size:1.4rem;font-weight:700;margin-bottom:6px}
+.game-desc{font-size:.68rem;color:var(--muted);line-height:1.7;margin-bottom:24px;
+  border-left:3px solid var(--rust);padding-left:12px}
+/* Payoff matrix */
+.matrix-wrap{background:var(--cream);border:2px solid var(--warm);padding:24px;margin-bottom:24px}
+.matrix-title{font-size:.6rem;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);margin-bottom:16px}
+table{border-collapse:collapse;width:100%}
+th{font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);
+  padding:8px 12px;font-weight:500}
+td{border:1px solid var(--warm);padding:0}
+.cell-inner{display:flex;flex-direction:column;align-items:center;padding:10px 8px;cursor:pointer;
+  transition:background .15s;position:relative}
+.cell-inner:hover{background:var(--warm)}
+.payoff-pair{font-size:.85rem;font-weight:500;letter-spacing:.05em}
+.p1-payoff{color:var(--rust)}
+.p2-payoff{color:var(--blue)}
+.separator{font-size:.7rem;color:var(--muted);margin:1px 0}
+.nash-marker{position:absolute;top:3px;right:3px;width:8px;height:8px;
+  background:var(--green);border-radius:50%;display:none}
+.nash-marker.show{display:block}
+.dominant{background:rgba(192,57,43,.08) !important}
+/* Controls */
+.controls{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:24px}
+.ctrl-group{flex:1;min-width:180px}
+.ctrl-label{font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.payoff-input{width:100%;padding:7px 10px;border:1px solid var(--warm);background:var(--bg);
+  font-family:'DM Mono',monospace;font-size:.75rem;color:var(--ink)}
+.payoff-input:focus{outline:2px solid var(--rust);border-color:transparent}
+/* Analysis */
+.analysis{background:var(--ink);color:var(--bg);padding:20px 24px;margin-bottom:24px}
+.analysis-title{font-size:.6rem;letter-spacing:.15em;text-transform:uppercase;
+  color:#8a7560;margin-bottom:12px}
+.finding{padding:8px 0;border-bottom:1px solid #2a2a2a;font-size:.72rem;line-height:1.6}
+.finding:last-child{border-bottom:none}
+.finding .label{color:#8a7560;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase}
+.highlight{color:#f0c040}
+.nash-text{color:#6fcf97}
+.dom-text{color:#eb5757}
+/* Run buttons */
+.action-row{display:flex;gap:10px;margin-bottom:24px;flex-wrap:wrap}
+.action-btn{padding:10px 20px;border:2px solid var(--ink);background:none;
+  font-family:'DM Mono',monospace;font-size:.68rem;letter-spacing:.08em;
+  cursor:pointer;transition:all .15s;text-transform:uppercase}
+.action-btn:hover,.action-btn.primary{background:var(--ink);color:var(--bg)}
+.action-btn.rust{border-color:var(--rust);color:var(--rust)}
+.action-btn.rust:hover{background:var(--rust);color:#fff}
+/* Iterated deletion */
+.history{background:var(--cream);border:2px solid var(--warm);padding:20px;margin-top:20px}
+.history-step{font-size:.68rem;padding:6px 0;border-bottom:1px solid var(--warm);line-height:1.5}
+.history-step:last-child{border-bottom:none}
+.step-label{color:var(--rust);font-weight:500}
+/* Probability sliders */
+.mixed-row{display:flex;align-items:center;gap:12px;margin-bottom:12px;font-size:.7rem}
+.mixed-row label{min-width:140px;color:var(--muted)}
+.mixed-row input{flex:1;accent-color:var(--rust)}
+.mixed-row .val{min-width:40px;text-align:right;font-weight:500;color:var(--rust)}
+.payoff-display{font-size:1.2rem;font-weight:700;color:var(--rust);margin-top:12px}
+/* Auction */
+.auction-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:20px}
+.bidder-card{background:var(--cream);border:2px solid var(--warm);padding:16px}
+.bidder-name{font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.bidder-val{font-size:1.4rem;font-weight:700;font-family:'Playfair Display',serif;color:var(--ink)}
+.bidder-bid{font-size:.85rem;color:var(--rust);margin-top:4px}
+.winner-card{border-color:var(--green);background:rgba(45,106,79,.05)}
+.winner-card .bidder-name{color:var(--green)}
+/* Responsive */
+@media(max-width:700px){.app{grid-template-columns:1fr}.sidebar{display:none}}
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+  <h1>Game Theory</h1>
+  <div>
+    <div style="color:#c4a882;font-size:.8rem;margin-bottom:2px">Strategy & Decision Making Simulator</div>
+    <div class="header-sub">Built from IIM Ahmedabad curriculum · Prof. Viswanath Pingali</div>
+  </div>
+  <div class="cert-badge">IIMA · COURSERA CERTIFIED</div>
+</header>
+
+<div class="sidebar">
+  <div class="nav-label">2×2 Games</div>
+  <button class="nav-btn active" onclick="loadGame('prisoners')">Prisoner's Dilemma</button>
+  <button class="nav-btn" onclick="loadGame('battle')">Battle of the Sexes</button>
+  <button class="nav-btn" onclick="loadGame('stag')">Stag Hunt</button>
+  <button class="nav-btn" onclick="loadGame('chicken')">Chicken / Hawk-Dove</button>
+  <button class="nav-btn" onclick="loadGame('custom')">Custom Matrix</button>
+
+  <div class="nav-label">Solution Concepts</div>
+  <button class="nav-btn" onclick="showSection('nash')">Nash Equilibrium</button>
+  <button class="nav-btn" onclick="showSection('dominance')">Iterated Dominance</button>
+  <button class="nav-btn" onclick="showSection('mixed')">Mixed Strategies</button>
+
+  <div class="nav-label">Applications</div>
+  <button class="nav-btn" onclick="showSection('auction')">Auction Theory</button>
+  <button class="nav-btn" onclick="showSection('cournot')">Cournot Duopoly</button>
+  <button class="nav-btn" onclick="showSection('mba-note')">MBA Relevance</button>
+</div>
+
+<div class="main" id="main-content">
+  <!-- injected dynamically -->
+</div>
+</div>
+
+<script>
+// ── GAME LIBRARY ─────────────────────────────────────────────────────────────
+const GAMES = {
+  prisoners:{
+    name:"Prisoner's Dilemma",
+    desc:`Two suspects are interrogated separately. Each can Cooperate (stay silent) or Defect (betray). 
+If both cooperate: minor sentences. If one defects: the defector goes free, the other gets the harshest sentence. 
+If both defect: both get moderate sentences. The dominant strategy for both is to Defect — even though mutual 
+cooperation yields a better collective outcome. This is the foundational tension in game theory.`,
+    p1:['Cooperate','Defect'], p2:['Cooperate','Defect'],
+    payoffs:[[[3,3],[0,5]],[[5,0],[1,1]]],
+    nash:[[1,1]], dominant:[[1,1]]
+  },
+  battle:{
+    name:"Battle of the Sexes",
+    desc:`A couple must choose between two events (Opera vs Football) independently. Each prefers different events 
+but both prefer being together over being apart. This game has two pure Nash Equilibria (both Opera, or both Football) 
+and one mixed strategy equilibrium. It illustrates coordination problems and the value of communication.`,
+    p1:['Opera','Football'], p2:['Opera','Football'],
+    payoffs:[[[2,1],[0,0]],[[0,0],[1,2]]],
+    nash:[[0,0],[1,1]], dominant:[]
+  },
+  stag:{
+    name:"Stag Hunt",
+    desc:`Two hunters can cooperate to hunt a stag (high reward, needs both) or individually hunt a hare 
+(lower reward, guaranteed). This models social cooperation and trust. There are two Nash Equilibria: both hunt stag 
+(Pareto optimal) or both hunt hare (risk dominant). Which equilibrium society coordinates on depends on trust and beliefs.`,
+    p1:['Stag','Hare'], p2:['Stag','Hare'],
+    payoffs:[[[4,4],[0,2]],[[2,0],[2,2]]],
+    nash:[[0,0],[1,1]], dominant:[]
+  },
+  chicken:{
+    name:"Chicken (Hawk-Dove)",
+    desc:`Two drivers head toward each other. Each can Swerve (Dove) or Straight (Hawk). If both go Straight: crash (worst). 
+If one swerves: the Hawk wins face, the Dove loses face. If both swerve: draw. Used to model nuclear deterrence, 
+arms races, and business competition. The Nash Equilibria are asymmetric — one Hawk, one Dove.`,
+    p1:['Swerve','Straight'], p2:['Swerve','Straight'],
+    payoffs:[[[0,0],[-1,1]],[[1,-1],[-10,-10]]],
+    nash:[[0,1],[1,0]], dominant:[]
+  },
+  custom:{
+    name:"Custom Payoff Matrix",
+    desc:"Enter any 2×2 payoff matrix below. The solver will automatically find Nash Equilibria and dominant strategies.",
+    p1:['Strategy A','Strategy B'], p2:['Strategy X','Strategy Y'],
+    payoffs:[[[3,3],[1,4]],[[4,1],[2,2]]],
+    nash:null, dominant:null
+  }
+};
+
+let currentGame=GAMES.prisoners;
+let currentPayoffs=JSON.parse(JSON.stringify(GAMES.prisoners.payoffs));
+let currentSection='matrix';
+
+// ── RENDER MAIN ──────────────────────────────────────────────────────────────
+function renderMatrix(game, payoffs, highlights){
+  const nash=findNash(payoffs);
+  const dom=findDominant(payoffs);
+
+  let html=`<div class="game-title">${game.name}</div>
+<div class="game-desc">${game.desc}</div>`;
+
+  // Editable payoffs for custom
+  if(game===GAMES.custom){
+    html+=`<div class="controls">
+      <div class="ctrl-group"><div class="ctrl-label">P1 / P2 labels</div>
+        <input class="payoff-input" id="p1s1" value="${game.p1[0]}" onchange="updateLabels()">
+        <input class="payoff-input" id="p1s2" value="${game.p1[1]}" style="margin-top:4px" onchange="updateLabels()">
+      </div>
+      <div class="ctrl-group"><div class="ctrl-label">Payoffs (R,C / R,C each row)</div>
+        <input class="payoff-input" id="pa" value="${payoffs[0][0].join(',')}" placeholder="3,3">
+        <input class="payoff-input" id="pb" value="${payoffs[0][1].join(',')}" placeholder="1,4" style="margin-top:4px">
+        <input class="payoff-input" id="pc" value="${payoffs[1][0].join(',')}" placeholder="4,1" style="margin-top:4px">
+        <input class="payoff-input" id="pd" value="${payoffs[1][1].join(',')}" placeholder="2,2" style="margin-top:4px">
+      </div>
+    </div>
+    <div class="action-row"><button class="action-btn primary" onclick="solveCustom()">▶ Solve Matrix</button></div>`;
+  }
+
+  html+=`<div class="matrix-wrap">
+<div class="matrix-title">Payoff Matrix — <span style="color:var(--rust)">Row (P1)</span> / <span style="color:var(--blue)">Column (P2)</span></div>
+<table>
+<tr><th></th><th colspan="1">${game.p2[0]}</th><th colspan="1">${game.p2[1]}</th></tr>`;
+
+  for(let i=0;i<2;i++){
+    html+=`<tr><th style="text-align:right;padding-right:12px;font-size:.65rem">${game.p1[i]}</th>`;
+    for(let j=0;j<2;j++){
+      const isNash=nash.some(n=>n[0]===i&&n[1]===j);
+      const isDom=dom.some(d=>d[0]===i&&d[1]===j);
+      const bg=isNash?'background:rgba(45,106,79,.08)':isDom?'background:rgba(192,57,43,.06)':'';
+      html+=`<td style="${bg}"><div class="cell-inner" onclick="explainCell(${i},${j})">
+        <div class="nash-marker ${isNash?'show':''}"></div>
+        <span class="payoff-pair"><span class="p1-payoff">${payoffs[i][j][0]}</span><span class="separator">,</span><span class="p2-payoff">${payoffs[i][j][1]}</span></span>
+        <span style="font-size:.55rem;color:var(--muted);margin-top:3px">${isNash?'★ Nash':isDom?'✓ Dom':''}</span>
+      </div></td>`;
+    }
+    html+=`</tr>`;
+  }
+  html+=`</table></div>`;
+
+  // Analysis
+  html+=`<div class="analysis">
+<div class="analysis-title">Solution Analysis</div>`;
+
+  if(nash.length>0){
+    nash.forEach(ne=>{
+      html+=`<div class="finding"><span class="label">Nash Equilibrium</span><br>
+        <span class="nash-text">★ (${game.p1[ne[0]]}, ${game.p2[ne[1]]}) → Payoff: (${payoffs[ne[0]][ne[1]][0]}, ${payoffs[ne[0]][ne[1]][1]})</span><br>
+        <span style="color:#8a7560;font-size:.62rem">Neither player benefits from unilaterally deviating from this outcome.</span></div>`;
+    });
+  } else {
+    html+=`<div class="finding"><span class="nash-text">No pure strategy Nash Equilibrium — see Mixed Strategies section.</span></div>`;
+  }
+
+  if(dom.length>0){
+    html+=`<div class="finding"><span class="label">Dominant Strategy</span><br>
+      <span class="dom-text">P1 dominates with ${game.p1[dom[0][0]]} — always better regardless of P2's choice.</span></div>`;
+  }
+
+  const pareto=findPareto(payoffs);
+  html+=`<div class="finding"><span class="label">Pareto Optimal Outcome</span><br>
+    <span class="highlight">(${game.p1[pareto[0]]}, ${game.p2[pareto[1]]}) → (${payoffs[pareto[0]][pareto[1]][0]}, ${payoffs[pareto[0]][pareto[1]][1]})</span><br>
+    <span style="color:#8a7560;font-size:.62rem">Maximises total welfare. ${nash.some(n=>n[0]===pareto[0]&&n[1]===pareto[1])?'This IS the Nash Equilibrium — efficient!':'Nash Equilibrium differs — social cost of rational self-interest.'}</span></div>`;
+
+  html+=`</div>`;
+
+  html+=`<div class="action-row">
+    <button class="action-btn primary" onclick="showSection('nash')">Find Nash Equilibrium →</button>
+    <button class="action-btn" onclick="showSection('mixed')">Mixed Strategies →</button>
+    <button class="action-btn rust" onclick="showSection('dominance')">Iterated Dominance →</button>
+  </div>`;
+
+  document.getElementById('main-content').innerHTML=html;
+}
+
+// ── SOLUTION ALGORITHMS ───────────────────────────────────────────────────────
+function findNash(payoffs){
+  const ne=[];
+  for(let i=0;i<2;i++) for(let j=0;j<2;j++){
+    // P1: is i a best response to j?
+    const p1_br = payoffs[i][j][0] >= Math.max(payoffs[0][j][0], payoffs[1][j][0]);
+    // P2: is j a best response to i?
+    const p2_br = payoffs[i][j][1] >= Math.max(payoffs[i][0][1], payoffs[i][1][1]);
+    if(p1_br && p2_br) ne.push([i,j]);
+  }
+  return ne;
+}
+
+function findDominant(payoffs){
+  const dom=[];
+  // Check if row 0 dominates row 1 for P1
+  if(payoffs[0][0][0]>payoffs[1][0][0] && payoffs[0][1][0]>payoffs[1][1][0]) dom.push([0,0],[0,1]);
+  if(payoffs[1][0][0]>payoffs[0][0][0] && payoffs[1][1][0]>payoffs[0][1][0]) dom.push([1,0],[1,1]);
+  return dom;
+}
+
+function findPareto(payoffs){
+  let best=[0,0], bestSum=payoffs[0][0][0]+payoffs[0][0][1];
+  for(let i=0;i<2;i++) for(let j=0;j<2;j++){
+    const s=payoffs[i][j][0]+payoffs[i][j][1];
+    if(s>bestSum){bestSum=s;best=[i,j];}
+  }
+  return best;
+}
+
+// ── SECTIONS ──────────────────────────────────────────────────────────────────
+function loadGame(key){
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  event.target.classList.add('active');
+  currentGame=GAMES[key];
+  currentPayoffs=JSON.parse(JSON.stringify(currentGame.payoffs));
+  renderMatrix(currentGame,currentPayoffs);
+}
+
+function showSection(sec){
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  if(sec==='nash'){renderNashExplainer();}
+  else if(sec==='dominance'){renderDominance();}
+  else if(sec==='mixed'){renderMixed();}
+  else if(sec==='auction'){renderAuction();}
+  else if(sec==='cournot'){renderCournot();}
+  else if(sec==='mba-note'){renderMBANote();}
+}
+
+function renderNashExplainer(){
+  const g=currentGame, p=currentPayoffs;
+  const nash=findNash(p);
+  let html=`<div class="game-title">Nash Equilibrium Finder</div>
+<div class="game-desc">A Nash Equilibrium is a strategy profile where no player benefits from changing their strategy unilaterally, assuming others keep theirs fixed. Named after John Nash (Nobel 1994).</div>
+<div class="matrix-wrap"><div class="matrix-title">Best Response Analysis — ${g.name}</div>`;
+
+  html+=`<table><tr><th></th><th>${g.p2[0]}</th><th>${g.p2[1]}</th></tr>`;
+  for(let i=0;i<2;i++){
+    html+=`<tr><th style="text-align:right;padding-right:12px;font-size:.65rem">${g.p1[i]}</th>`;
+    for(let j=0;j<2;j++){
+      const p1_br = p[i][j][0] >= Math.max(p[0][j][0],p[1][j][0]);
+      const p2_br = p[i][j][1] >= Math.max(p[i][0][1],p[i][1][1]);
+      const isNE=p1_br&&p2_br;
+      html+=`<td style="background:${isNE?'rgba(45,106,79,.1)':''}">
+        <div class="cell-inner">
+          <div class="nash-marker ${isNE?'show':''}"></div>
+          <span class="payoff-pair"><span class="p1-payoff ${p1_br?'':'opacity:.4'}" style="${p1_br?'text-decoration:underline':''}">${p[i][j][0]}</span>,<span class="p2-payoff ${p2_br?'':'opacity:.4'}" style="${p2_br?'text-decoration:underline':''}">${p[i][j][1]}</span></span>
+          <span style="font-size:.55rem;color:var(--muted)">${p1_br?'P1↑':''}${p2_br?'P2↑':''}</span>
+        </div>
+      </td>`;
+    }
+    html+=`</tr>`;
+  }
+  html+=`</table><div style="font-size:.62rem;color:var(--muted);margin-top:10px">Underlined = best response. ★ = both best responses = Nash Equilibrium.</div></div>`;
+
+  html+=`<div class="analysis"><div class="analysis-title">Nash Equilibria Found</div>`;
+  if(nash.length===0){
+    html+=`<div class="finding"><span class="nash-text">No pure strategy NE exists. This game requires a Mixed Strategy NE.</span></div>`;
+  } else {
+    nash.forEach(ne=>{
+      html+=`<div class="finding"><span class="nash-text">★ (${g.p1[ne[0]]}, ${g.p2[ne[1]]}) = (${p[ne[0]][ne[1]][0]}, ${p[ne[0]][ne[1]][1]})</span><br>
+        <span style="font-size:.62rem;color:#8a7560">P1's best response to ${g.p2[ne[1]]} is ${g.p1[ne[0]]}. P2's best response to ${g.p1[ne[0]]} is ${g.p2[ne[1]]}.</span></div>`;
+    });
+  }
+  html+=`</div>`;
+  document.getElementById('main-content').innerHTML=html;
+}
+
+function renderDominance(){
+  const g=currentGame, p=currentPayoffs;
+  let html=`<div class="game-title">Iterated Elimination of Dominated Strategies</div>
+<div class="game-desc">IESDS: repeatedly remove strategies that are never a best response — strategies dominated by another. What remains are rationalizable strategies.</div>
+<div class="history"><div class="matrix-title" style="margin-bottom:12px">Step-by-step analysis — ${g.name}</div>`;
+
+  // Step 1
+  const r0dom = p[0][0][0]>p[1][0][0]&&p[0][1][0]>p[1][1][0];
+  const r1dom = p[1][0][0]>p[0][0][0]&&p[1][1][0]>p[0][1][0];
+  const c0dom = p[0][0][1]>p[0][1][1]&&p[1][0][1]>p[1][1][1];
+  const c1dom = p[0][1][1]>p[0][0][1]&&p[1][1][1]>p[1][0][1];
+
+  html+=`<div class="history-step"><span class="step-label">Step 1 — Check P1 dominated rows</span><br>`;
+  if(r0dom) html+=`${g.p1[0]} strictly dominates ${g.p1[1]} for P1 (always higher payoff).`;
+  else if(r1dom) html+=`${g.p1[1]} strictly dominates ${g.p1[0]} for P1.`;
+  else html+=`No strictly dominated row for P1.`;
+  html+=`</div>`;
+
+  html+=`<div class="history-step"><span class="step-label">Step 2 — Check P2 dominated columns</span><br>`;
+  if(c0dom) html+=`${g.p2[0]} strictly dominates ${g.p2[1]} for P2.`;
+  else if(c1dom) html+=`${g.p2[1]} strictly dominates ${g.p2[0]} for P2.`;
+  else html+=`No strictly dominated column for P2.`;
+  html+=`</div>`;
+
+  const nash=findNash(p);
+  html+=`<div class="history-step"><span class="step-label">Result</span><br>`;
+  if((r0dom||r1dom)&&(c0dom||c1dom)){
+    const ri=r0dom?1:0, ci=c0dom?1:0;
+    html+=`After elimination: unique survivor = <span style="color:var(--rust)">(${g.p1[1-ri]}, ${g.p2[1-ci]})</span>. This is the unique Nash Equilibrium.`;
+  } else {
+    html+=`IESDS does not reduce to a unique outcome. ${nash.length} Nash Equilibria remain: `;
+    html+=nash.map(n=>`(${g.p1[n[0]]},${g.p2[n[1]]})`).join(', ')||'requires Mixed Strategy.';
+  }
+  html+=`</div></div>`;
+  document.getElementById('main-content').innerHTML=html;
+}
+
+function renderMixed(){
+  const g=currentGame, p=currentPayoffs;
+  let html=`<div class="game-title">Mixed Strategy Equilibrium</div>
+<div class="game-desc">When no pure NE exists (or both exist), players randomise. In a Mixed NE, each player's mix makes the opponent indifferent between their pure strategies.</div>`;
+
+  // Solve for mixed NE
+  // P2 indifferent: p1*(a-c) = (1-p1)*(d-b) where a=p[0][0][0], etc
+  const a=p[0][0][0], b=p[0][1][0], c=p[1][0][0], d=p[1][1][0];
+  const e=p[0][0][1], f=p[0][1][1], g2=p[1][0][1], h=p[1][1][1];
+
+  // P1 mixes so P2 is indifferent: p1*e + (1-p1)*g2 = p1*f + (1-p1)*h
+  // p1*(e-g2-f+h) = h-g2 => p1 = (h-g2)/(e-g2-f+h)
+  const denom1=(e-g2-f+h);
+  const p1mix = denom1!==0 ? Math.max(0,Math.min(1,(h-g2)/denom1)) : 0.5;
+  // P2 mixes so P1 is indifferent
+  const denom2=(a-b-c+d);
+  const p2mix = denom2!==0 ? Math.max(0,Math.min(1,(d-b)/denom2)) : 0.5;
+
+  html+=`<div class="matrix-wrap"><div class="matrix-title">Expected Payoff Calculation</div>
+<div class="mixed-row"><label>P1 plays ${g.p1[0]} with prob</label>
+  <input type="range" min="0" max="1" step="0.01" value="${p1mix.toFixed(2)}" id="sl-p1mix" oninput="updateMixed(this.value,null)">
+  <span class="val" id="v-p1mix">${(p1mix*100).toFixed(0)}%</span></div>
+<div class="mixed-row"><label>P2 plays ${g.p2[0]} with prob</label>
+  <input type="range" min="0" max="1" step="0.01" value="${p2mix.toFixed(2)}" id="sl-p2mix" oninput="updateMixed(null,this.value)">
+  <span class="val" id="v-p2mix">${(p2mix*100).toFixed(0)}%</span></div>
+<div id="mixed-payoff"></div></div>`;
+
+  html+=`<div class="analysis"><div class="analysis-title">Mixed Strategy Nash Equilibrium</div>
+<div class="finding"><span class="nash-text">P1 plays ${g.p1[0]} with probability ${(p1mix*100).toFixed(1)}%</span><br>
+  <span style="font-size:.62rem;color:#8a7560">Makes P2 indifferent between ${g.p2[0]} and ${g.p2[1]}</span></div>
+<div class="finding"><span class="nash-text">P2 plays ${g.p2[0]} with probability ${(p2mix*100).toFixed(1)}%</span><br>
+  <span style="font-size:.62rem;color:#8a7560">Makes P1 indifferent between ${g.p1[0]} and ${g.p1[1]}</span></div>
+</div>`;
+
+  document.getElementById('main-content').innerHTML=html;
+  window._p=p; window._g=g;
+  updateMixed(p1mix,p2mix);
+}
+
+window.updateMixed=function(p1,p2){
+  const sl1=document.getElementById('sl-p1mix');
+  const sl2=document.getElementById('sl-p2mix');
+  const v1=p1!==null?+p1:+sl1.value;
+  const v2=p2!==null?+p2:+sl2.value;
+  if(p1!==null)sl1.value=v1;
+  if(p2!==null)sl2.value=v2;
+  document.getElementById('v-p1mix').textContent=(v1*100).toFixed(0)+'%';
+  document.getElementById('v-p2mix').textContent=(v2*100).toFixed(0)+'%';
+  const pp=window._p;
+  const ep1=v1*v2*pp[0][0][0]+v1*(1-v2)*pp[0][1][0]+(1-v1)*v2*pp[1][0][0]+(1-v1)*(1-v2)*pp[1][1][0];
+  const ep2=v1*v2*pp[0][0][1]+v1*(1-v2)*pp[0][1][1]+(1-v1)*v2*pp[1][0][1]+(1-v1)*(1-v2)*pp[1][1][1];
+  document.getElementById('mixed-payoff').innerHTML=
+    `<div style="margin-top:12px;font-size:.7rem;color:var(--muted)">Expected payoffs at this mix:</div>
+     <div style="font-size:1.1rem;margin-top:6px"><span style="color:var(--rust);font-weight:700">P1: ${ep1.toFixed(2)}</span> &nbsp;·&nbsp; <span style="color:var(--blue);font-weight:700">P2: ${ep2.toFixed(2)}</span></div>`;
+};
+
+function renderAuction(){
+  const names=['Firm A','Firm B','Firm C','Firm D','Firm E'];
+  const values=names.map(()=>Math.floor(Math.random()*100+50));
+  let html=`<div class="game-title">Auction Theory Simulator</div>
+<div class="game-desc">In a second-price (Vickrey) auction, the dominant strategy is to bid your true value — unlike first-price auctions where bid-shading is optimal. Run both auctions to compare outcomes.</div>
+<div class="action-row">
+  <button class="action-btn primary" onclick="runAuction('second',${JSON.stringify(values)})">▶ Run Vickrey (2nd Price)</button>
+  <button class="action-btn" onclick="runAuction('first',${JSON.stringify(values)})">▶ Run First-Price Sealed</button>
+  <button class="action-btn rust" onclick="renderAuction()">↺ New Valuations</button>
+</div>
+<div class="auction-grid">`;
+  values.forEach((v,i)=>{
+    html+=`<div class="bidder-card"><div class="bidder-name">${names[i]}</div>
+      <div class="bidder-val">₹${v}</div>
+      <div class="bidder-bid" id="bid-${i}">True value</div></div>`;
+  });
+  html+=`</div><div id="auction-result"></div>`;
+  document.getElementById('main-content').innerHTML=html;
+  window._auctionVals=values;
+}
+
+window.runAuction=function(type,vals){
+  const names=['Firm A','Firm B','Firm C','Firm D','Firm E'];
+  let bids;
+  if(type==='second'){
+    bids=vals.map(v=>v); // truthful bidding
+  } else {
+    // First price: bid = v/2 + random shading
+    bids=vals.map(v=>Math.floor(v*(0.55+Math.random()*0.2)));
+  }
+  const winnerIdx=bids.indexOf(Math.max(...bids));
+  const sortedBids=[...bids].sort((a,b)=>b-a);
+  const price=type==='second'?sortedBids[1]:bids[winnerIdx];
+  const surplus=vals[winnerIdx]-price;
+
+  bids.forEach((b,i)=>{
+    const el=document.getElementById(`bid-${i}`);
+    if(el){el.textContent=`Bid: ₹${b}`;el.style.color=i===winnerIdx?'var(--green)':'var(--muted)';}
+    const card=el?.closest('.bidder-card');
+    if(card){card.className=`bidder-card ${i===winnerIdx?'winner-card':''}`;}
+  });
+  document.getElementById('auction-result').innerHTML=
+    `<div class="analysis"><div class="analysis-title">Auction Result — ${type==='second'?'Vickrey (2nd Price)':'First-Price Sealed Bid'}</div>
+    <div class="finding"><span class="nash-text">Winner: ${names[winnerIdx]} · Bid ₹${bids[winnerIdx]} · Pays ₹${price}</span></div>
+    <div class="finding"><span class="label">Allocative Efficiency</span><br><span class="highlight">Winner has highest valuation (₹${vals[winnerIdx]}) — ${winnerIdx===vals.indexOf(Math.max(...vals))?'✓ Efficient allocation':'✗ Not efficient'}</span></div>
+    <div class="finding"><span class="label">Winner Surplus</span><br><span class="highlight">₹${surplus} (value ₹${vals[winnerIdx]} − price ₹${price})</span></div>
+    <div class="finding" style="font-size:.65rem;color:#8a7560">${type==='second'?'In Vickrey auctions, truthful bidding is the dominant strategy — no incentive to shade your bid.':'In first-price auctions, optimal bid = (n-1)/n × value (Bayesian Nash Eq). Bid shading is rational.'}</div>
+    </div>`;
+};
+
+function renderCournot(){
+  let html=`<div class="game-title">Cournot Duopoly</div>
+<div class="game-desc">Two firms compete by choosing quantities simultaneously. Each firm's optimal quantity depends on the other's output. The Nash Equilibrium is where both firms' best responses intersect.</div>
+<div class="matrix-wrap">
+  <div class="matrix-title">Market Parameters</div>
+  <div class="mixed-row"><label>Market demand (a)</label>
+    <input type="range" min="50" max="200" value="100" id="sl-a" oninput="solveCournot()"><span class="val" id="v-a">100</span></div>
+  <div class="mixed-row"><label>Marginal cost C1</label>
+    <input type="range" min="0" max="40" value="10" id="sl-c1" oninput="solveCournot()"><span class="val" id="v-c1">10</span></div>
+  <div class="mixed-row"><label>Marginal cost C2</label>
+    <input type="range" min="0" max="40" value="10" id="sl-c2" oninput="solveCournot()"><span class="val" id="v-c2">10</span></div>
+</div>
+<div id="cournot-result"></div>`;
+  document.getElementById('main-content').innerHTML=html;
+  solveCournot();
+}
+
+window.solveCournot=function(){
+  const a=+document.getElementById('sl-a').value;
+  const c1=+document.getElementById('sl-c1').value;
+  const c2=+document.getElementById('sl-c2').value;
+  document.getElementById('v-a').textContent=a;
+  document.getElementById('v-c1').textContent=c1;
+  document.getElementById('v-c2').textContent=c2;
+  // q1* = (a - 2c1 + c2)/3, q2* = (a - 2c2 + c1)/3
+  const q1=Math.max(0,(a-2*c1+c2)/3);
+  const q2=Math.max(0,(a-2*c2+c1)/3);
+  const Q=q1+q2;
+  const P=Math.max(0,a-Q);
+  const pi1=(P-c1)*q1;
+  const pi2=(P-c2)*q2;
+  const qm=(a-c1)/2; // monopoly
+  const Pm=a-qm; const pim=(Pm-c1)*qm;
+  const qcomp=(a-c1); // perfect competition
+  document.getElementById('cournot-result').innerHTML=
+    `<div class="analysis"><div class="analysis-title">Cournot Nash Equilibrium</div>
+    <div class="finding"><span class="nash-text">Firm 1: q₁* = ${q1.toFixed(1)}, Profit = ₹${pi1.toFixed(1)}</span></div>
+    <div class="finding"><span class="nash-text">Firm 2: q₂* = ${q2.toFixed(1)}, Profit = ₹${pi2.toFixed(1)}</span></div>
+    <div class="finding"><span class="label">Market Outcome</span><br><span class="highlight">Price = ₹${P.toFixed(1)}, Total Q = ${Q.toFixed(1)}</span></div>
+    <div class="finding"><span class="label">vs Monopoly</span><br><span style="color:#8a7560">Monopoly: P=₹${Pm.toFixed(1)}, q=${qm.toFixed(1)}, π=₹${pim.toFixed(1)}</span></div>
+    <div class="finding" style="font-size:.65rem;color:#8a7560">Cournot sits between monopoly (high price) and perfect competition (P=MC). Best response functions: q₁ = (a-c₁-q₂)/2</div>
+    </div>`;
+};
+
+function renderMBANote(){
+  document.getElementById('main-content').innerHTML=`
+<div class="game-title">Game Theory & Management Strategy</div>
+<div class="game-desc">Why a CSE student took this course — and what it connects to.</div>
+<div style="background:var(--cream);border:2px solid var(--warm);padding:24px;margin-bottom:20px;line-height:1.9;font-size:.72rem">
+<p style="margin-bottom:16px">Game theory is the mathematics of strategic interaction — it models situations where your outcome depends not just on your choices but on others' choices too. For a future MBA student, this is not academic abstraction. It is the operating system of competitive markets.</p>
+<p style="margin-bottom:16px"><strong>Pricing decisions</strong> between duopolists are Cournot or Bertrand games. <strong>Negotiations</strong> are extensive-form games with credible threats and commitment. <strong>Mergers and acquisitions</strong> involve auction theory and signalling. <strong>Platform competition</strong> (Uber vs Ola, Zomato vs Swiggy) is a coordination/network effects game. Every strategy framework taught in MBA programmes — Porter's Five Forces, co-opetition, first-mover advantage — has a game-theoretic foundation.</p>
+<p><strong>The IIM Ahmedabad course</strong> (Prof. Viswanath Pingali, Economics & Strategy) covers Nash Equilibria, dominant strategies, signalling, mechanism design, and auction theory. This simulator implements the core models from that curriculum.</p>
+</div>
+<div class="analysis"><div class="analysis-title">Connections to this project</div>
+<div class="finding"><span class="nash-text">The DRDO clustering algorithm is itself a form of game:</span> each sensor "chooses" measurements to associate, and the algorithm finds the stable association where no measurement benefits from switching clusters — structurally similar to finding a Nash Equilibrium.</div>
+<div class="finding"><span class="highlight">Target application:</span> MBA programmes (IIM-A/B/C, ISB, international) that value cross-domain thinkers — engineers who understand strategic decision-making.</div>
+</div>`;
+}
+
+function solveCustom(){
+  const pa=document.getElementById('pa').value.split(',').map(Number);
+  const pb=document.getElementById('pb').value.split(',').map(Number);
+  const pc=document.getElementById('pc').value.split(',').map(Number);
+  const pd2=document.getElementById('pd').value.split(',').map(Number);
+  currentPayoffs=[[pa,pb],[pc,pd2]];
+  renderMatrix(currentGame,currentPayoffs);
+}
+
+function explainCell(i,j){
+  // Just re-render with highlight — already handled in matrix
+}
+
+// init
+renderMatrix(GAMES.prisoners, currentPayoffs);
+</script>
+</body>
+</html>
